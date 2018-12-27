@@ -1,2 +1,2 @@
-# greg_bot
+# Greg Bot
 Recipe Slack bot
