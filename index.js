@@ -10,61 +10,44 @@
 */
 
 // fs is a library that can read contents of files
+
 const fs = require('fs')
+const queryString = require('query-string')
+const { createRecipeResponse } = require('./src/responseHelper')
 
-const {
-  createRecipeResponse,
- } = require('./src/responseHelper.js')
+const { SLACK_TOKEN } = process.env
 
-// Import express, a simple JavaScript HTTP
-// server that accepts HTTP requests, and returns
-// a response
-// For a basic express tutorial, see here: 
-const express = require('express')
+exports.handler = async (event) => {
+  const body = queryString.parse(event.body)
 
-// Import body-parser, which allows our express server
-// to convert HTTP text to JavaScript
-const bodyParser = require('body-parser')
-
-const app = new express()
-app.use(bodyParser.urlencoded({extended: true}))
-
-// On AWS, `process.env.PORT` will exist.
-// On our computers, we assign it to 8000 arbitrarily
-// See: https://en.wikipedia.org/wiki/Localhost
-const { PORT, SLACK_TOKEN } = process.env
-const defaultPort = 8000
-const port = PORT || defaultPort
-
-// Slack slash commands send POST requests
-// See: https://developer.mozilla.org/en-US/docs/Web/HTTP/Methods to learn about different types of HTTP requests
-// Most common HTTP requests are: GET, POST, PUT, PATCH, and DELETE - and they all mean (generally) what they sound like they mean
-app.post('/', (request, response) => {
-  if (request.body.token !== SLACK_TOKEN) {
-    return response.send('Unauthorized requestuest')
+  if (body.token !== SLACK_TOKEN) {
+    return {
+      statusCode: 401,
+      body: 'Unauthorized Request'
+    }
   }
 
-  if (!request.body.text) {
-    // Not quite sure the cleanest way to do this one yet...
-    return response.send('All the recipes coming soon...')
+  if (!body.text) {
+    return {
+      statusCode: 200,
+      body: 'All recipes coming soon'
+    }
   }
 
+  const drink = body.text.toLowerCase().replace(/[-_\s]+/g, '')
   try {
-    const drink = request.body.text.toLowerCase().replace(/-_/g, '')
     const recipe = fs.readFileSync(`recipes/${drink}.txt`)
 
-    response.json(
-      createRecipeResponse(drink, recipe)
-    )
-  } catch (error) {
-    if (error.code === 'ENOENT') {
-      return response.send(`Sorry, I don\'t know the recipe for ${drink} :confused:`)
+    return {
+      statusCode: 200,
+      body: JSON.stringify(
+        createRecipeResponse(drink, recipe)
+      )
     }
-
-    throw error
+  } catch (_e) {
+    return {
+      statusCode: 200,
+      body: `Sorry, I don\'t know the recipe for ${drink} :confused:`
+    }
   }
-})
-
-app.listen(port, () => {
-  console.log(`Server started at localhost:${port}`)
-})
+}
